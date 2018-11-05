@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 
 AUTHOR = 'GreeK'
 SITENAME = 'Exeris'
-SITEURL = 'http://test.cantr-mmorpg.pl/pelican'
+SITEURL = '.' # https://blog.exeris.org
 
 PATH = 'content'
 
@@ -26,11 +26,13 @@ SITESUBTITLE = 'browser-based crafting and exploration game'
 DISPLAY_PAGES_ON_MENU = True
 
 STATIC_PATHS = ['images']
-PROFILE_IMAGE_URL = "images/transparent-logo-180.png"
+PROFILE_IMAGE_URL = "/images/transparent-logo-180.png"
 
 EMAIL_ADDRESS = 'alchrabas@exeris.org'
 GITHUB_ADDRESS = 'https://github.com/alchrabas/exeris'
 TWITTER_ADDRESS = 'https://twitter.com/exerisorg'
+
+DISCOURSE_EMBEDDED_URL = 'https://forum.exeris.org'
 
 """
 # Blogroll
@@ -52,5 +54,9 @@ DISPLAY_INDEX_ON_MENU = True
 
 DEFAULT_PAGINATION = False
 
+PLUGIN_PATHS = ['pelican-plugins']
+PLUGINS = ['share_post']
+
+
 # Uncomment following line if you want document-relative URLs when developing
-#RELATIVE_URLS = True
+# RELATIVE_URLS = True

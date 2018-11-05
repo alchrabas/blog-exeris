@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block title %}
+{{ article.title|striptags }} - {{ SITENAME }}
+{% endblock title %}
+
 {% block content %}
 
 <section class="content">
@@ -21,32 +25,33 @@
     </address>
     {% endif  %}
   </div><!-- .postinfo -->
+  
+  {% if article.status == "published" %}
+    {% include "share_links.html" %}
+  {% endif %}
 
   <div class="article">
     {{ article.content }}
   </div><!-- .content -->
-
+  
 </section>
 
-<h4>RECENT POSTS</h4>
-{% set recent = articles if not all_articles else all_articles %}
-<ol id="postlist" class="recent-posts">
+{% if DISCOURSE_EMBEDDED_URL and article.status == "published" %}
+<div id='discourse-comments'></div>
 
-  {% for article in recent %}
-  <li class="post">
+<script type="text/javascript">
+  DiscourseEmbed = { discourseUrl: {{ DISCOURSE_EMBEDDED_URL }},
+                     discourseEmbedUrl: document.URL };
 
-        <header><a href="{{ SITEURL }}/{{ article.url }}"
-               rel="bookmark"
-               class="nodec"
-               title="Permalink to {{ article.title|striptags }}">{{ article.title }}</a>
-        </header>
+  (function() {
+    var d = document.createElement('script'); d.type = 'text/javascript'; d.async = true;
+    d.src = DiscourseEmbed.discourseUrl + 'javascripts/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(d);
+  })();
+</script>
+{% endif %}
 
-    <div class="postinfo">
-       <p class="published" title="{{ article.date.isoformat() }}"> {{ article.locale_date }} </p>
-    </div><!-- /.postinfo -->
 
-  </li>
-  {% endfor %}
-</ol>
+{% include "recent_posts.html" %}
 
 {% endblock %}
