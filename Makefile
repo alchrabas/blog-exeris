@@ -12,8 +12,8 @@ FTP_HOST=localhost
 FTP_USER=anonymous
 FTP_TARGET_DIR=/
 
-SSH_HOST=exeris-local
-SSH_PORT=22
+SSH_HOST=exeris-blog
+SSH_PORT=28
 SSH_USER=alchrabas
 SSH_TARGET_DIR=~/blog-exeris
 
