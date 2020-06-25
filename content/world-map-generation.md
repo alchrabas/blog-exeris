@@ -8,18 +8,26 @@ Summary: World map generation for Exeris
 
 In the recent months of lockdown I've worked a bit on reviving Exeris game and one of the most important issues left to do was procedural world generation. I wanted to be able to create islands and archipelagos which would become a game world on the beta game server.
 
+I wanted to have a map consisting of islands with distinct mountain chains, good distribution of terrain types, that will encourage towns to cooperate with people in different areas, rivers, lakes and a distinction between shallow and deep water. I also want to have a natural resource generator, but this can be done by a separate algorithm.
+
+![An example of generated world](/images/world-map-generation/final.png)
+
+An example world generated using my algorithm 
+
 # Procedural world generation
 
 My work is based on another article hosted on Stanford website, and it's not just an inspiration, but rather re-implementation of almost the same algorithm in Python. So this article explains how to do some things similarly, but usually better, because of more time spent and lack of some limitations which I had to impose.
 
-#### Link to the article: [http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/](http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/).  
+#### Link to the article: [http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/](http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/)
 
 <br>
-I didn't decide to just use it,s because of some special game requirements, some limitations to make terra-exeris - map drawing library - work and the fact I've preferred to have it in Python for further processing.
+I didn't decide to just use it because of some special requirements of my game and the fact I've preferred to have it in Python for ease of further processing.
 
 My world map generator tries to perform the task as simply as possible, so I'm not trying to introduce the concepts of tectonics, climates, movements of pressure areas. Things that can give good results when generated randomly are generated using random number generator or noise functions.
 
-The world generation consists of multiple steps run one after another. I'm going to explain them below.
+I don't like to work on image processing while I really like to work on graph problems, so I'm really happy that polygon-based representation of the map generation can be expressed in terms of graphs.
+
+The world generation consists of multiple steps run one after another. The rest of the article concerns the details of how they were done (as well as some cute images of the intermediate forms).
 
 # Naming conventions
 
@@ -30,12 +38,15 @@ The whole world map is split into polygons which are generated using Voronoi alg
 - Neighbour of vertex B - a vertex that touches edge which is also touched by vertex B 
 - Neighbour of region B - a region touches an edge common with region B
 
+![Naming conventions for region, vertex and neighbours](/images/world-map-generation/conventions.png)
+
+Left: all vertices in the diagram. Center: red region with blue neighbouring regions. Right: red vertex with neighbouring vertices
 
 # 1. Generation of polygons using Voronoi with Lloyd's relaxation
 
-[It's well explained here](http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/#polygons), so I won't write much about it.
+[It's well explained in the article I've mentioned earlier](http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/#polygons), so I won't write much about it.
 
-The result of my version is visible below. I didn't write it myself, but I've used a function from SciPy.
+The result of my version is visible below. I didn't write the whole algorithm myself, but I've used a function from SciPy.
 
 ![Voronoi diagram of the world map](/images/world-map-generation/voronoi.png)
 
@@ -43,34 +54,47 @@ Because this is one of the slowest steps and the difference between the Voronoi 
 
 # 2. Heightmap generation
 
-This one is significantly different from the linked article. Because of how the resources should be distributed and that I need long distinct mountain chains, I've decided to start generating islands by randomly creating mountain chains of given (random) height and then recursively decrease this height in neigbhours based on value of Perlin noise at the specific point. This gives randomness.
+This one is significantly different from the linked article. Because of how the resources should be distributed and my preference to have distinct long mountain chains, I've decided to start generating islands by randomly creating mountain chains of given (random) height. All polygons crossing the line of mountain chain get this height and the neighbouring regions get a slightly decreased height affected by the value of Perlin noise at the specific point. It's done recursively until all regions on the map are visited. Thanks to Perlin noise there's some randomness in it.
 
-TODO Explain that mountain chains can be slightly broken.
+Each mountain chain is generated by selecting two random points on the map, which are not farther away than configurable X. Because having long straight mountain chains looked silly, I select a random point in the area visible on the diagram.
+
+![Calculation of point where the mountain chain can be broken](/images/world-map-generation/mountain-chain.png)
+
+For a mountain chain from A to B, a breaking point is randomly chosen between 1/4 and 3/4 of the length in the area colored blue. As a result, the curve produced is usually very mild.
+
+The final result of this step is visible below.
 
 ![Heightmap](/images/world-map-generation/heightmap.png)
 
 # 3. River generation
 
-Very easy, I select a random vertex high enough to be a mountain and start going downslope. 
+To generate a river, I select a random vertex in the mountain and start going downslope. 
 
-For each vertex in the map I've created a list of downslope vertices, which are neighbours with height lower than this vertex.
+For each vertex in the map I've created a list of downslope vertices, which are neighbours with height lower than this vertex. On diagram below arrows show downslope locations for each vertex.
 
 ![Downslopes for each vertex](/images/world-map-generation/downslopes.png)
 
 To generate another segment of the river, I select a random downslope location.
 
-A small heuristic improvement is when there's no downslope location, then the last segment of the river is removed and the downslope location is generated again. This algorithm can try to "go back" multiple steps before giving up. It's to decrease chance of being trapped into "wrong path". If the river still cannot reach the coast of a lake or sea, then a new lake is generated.
+Because really many rivers have ended their course before reaching the sea, I've added a small heuristic improvement. If at any given point there's no downslope to continue the river, then the last segment of the river is removed and the downslope location is randomly selected again. If it still doesn't work, then this algorithm tries to "go back" multiple steps before giving up. It's to decrease chance of being trapped into "wrong path". If the river still cannot reach the coast of a lake or sea or other river, then a new lake is generated.
+
+The final result of river generation is visible below. This time, all the rivers managed to reach the sea.
 
 ![Voronoi diagram of the world map](/images/world-map-generation/rivers.png)
-
-The final result is visible above
 
 # Terrain generation
 
 It's based on moisture (distance to any river or lake) and height (which was generated in step 2). I assume the island/archipelago is small enough to have the same climate everywhere.
 
-The following terrain types can be assigned:
-lake, deep_water, shallow_water, mountain, coniferous forest, deciduous forest, grassland, plains
+![Moisture generation](/images/world-map-generation/moisture.png)
+
+Moisture is assigned to every vertex: the brighter the dot, the more moisture in the vertex.
+
+Based on this, I use my own table similar to Whittaker Diagram. It represents only terrains existing in temperate climate.
+
+![My version of Whittaker Diagram](/images/world-map-generation/whittaker-diagram.png)
+
+The result of this function is available below. This tiny island is happy to have a lot of sweet water.
 
 ![Terrain](/images/world-map-generation/terrain.png)
 
@@ -80,28 +104,33 @@ Because my code is not perfect and it's easier to impose some invariants afterwa
 
 The following functions are performed:
 
- - add_shallow_water_near_coast - it's to make sure there's not a single deep water region next to the land. It's to make it always possible for small ships (which can sail only on shallow water) to sail around the island and prevent big ships from sailing to close to land
- - shallowize_isolated_deep_water - areas of deep water which don't touch the world map border are isolated so they should form a gulf of shallow water
+ - add_shallow_water_near_coast - it's to make sure there are no deep water region adjacent to any land region. It's to make it always possible for small ships (which can sail only on shallow water) to sail around the island and prevent big ships from sailing too close to land
+ - shallowize_isolated_deep_water - areas of deep water which don't touch the border of the map are isolated so they should form a gulf of shallow water
  - shallowize_lakes_touching_sea - if lake is generated next to the sea, then all the water in it becomes salted, so it becomes a sea gulf
- - deforest_near_coast - forest locations being directly near the coast could give too much advantage, because of importance of shipbuilding industry. One of ideas of the game is to require having both settlements on the coast and inland and make them trade
- - remove_river_segments_in_lakes - sometimes a lake is generated on area where there's already a river. Or other bad thing happens, which looks silly
- - remove_mountain_chains_which_are_too_low - mountain chain can be generated with the height lower than required by the mountain terrain. It affects the height of the area around it, but it's shouldn't be treated as a mountain chain in terms of generating graphics for mountain peaks by terra-exeris
- - remove_small_isolated_terrain_areas - when some terrain area consists of less than X regions then it should be removed and turned into the most frequent neighbour
+ - deforest_near_coast - forest locations being directly near the coast could give too much advantage, because of expected importance of shipbuilding industry in the game. One of ideas of the game is to require having both settlements on the coast and inland to stimulate trade
+ - remove_river_segments_in_lakes - sometimes a lake is generated on area where there's already a river. Or other bad thing happens, anyway it looks silly so such river segments need to be removed
+ - remove_mountain_chains_ which_are_too_low - mountain chain can be generated with the height lower than required by the mountain terrain. It affects the height of the area around it, but it's shouldn't be treated as a mountain chain in terms of generating graphics for mountain peaks by terra-exeris
+ - remove_small_isolated_terrain_areas - when some terrain area consists of less than a few regions then it should be removed and turned into the most common neighbour
 
 # Clustering
 
-Merges all regions of the same terrain type being next to each another to create big clusters/blobs of the same terrain type. It's represented by a polygon* which can potentially take a large area of the map.
+Merges all regions of the same terrain type being next to each another to create big clusters/blobs of the same terrain type. It's represented by a GIS polygon* which can cover a large area of the map.
 
-* polygon - in GIS nomenclature polygon consists of external ring and internal rings, which means a polygon can have holes in itself
+\* polygon - in GIS nomenclature polygon consists of external ring and internal rings, which means a polygon can have holes in itself
 
 # Removing arfifacts after clustering
 
 Here is only one technical thing to improve:
- - fix_mountain_center_line_to_fully_cover_mountain_polygon - mountain center is a line generated in step 2, so it's done before assigning terrain types. Terra-exeris requires that terrain of type mountain must be an area split into two by the mountain center line. A mountain can become a bit longer than planned earlier, so also a center line must be lengthened.
 
-![Terrain](/images/world-map-generation/final.png)
+ - fix_mountain_center_line_to_ fully_cover_mountain_polygon - mountain center is a line generated in step 2, so it's done before assigning terrain types. Terra-exeris requires that terrain of type mountain must be an area split into two by the mountain center line. A mountain can take a bit larger area than planned earlier, so also a center line must be lengthened.
 
-The final result looks like that
+A few runs of the final algorithm can be seen below:
+
+![Final result 1](/images/world-map-generation/final.png)
+
+![Final result 2](/images/world-map-generation/final2.png)
+
+![Final result 3](/images/world-map-generation/final3.png)
 
 # Resource generation
 
@@ -109,5 +138,12 @@ It's the part I'm still working on. It's a hard task, because, unlike physical m
 
 # Plotting/Exporting to GIS
 
-For testing purposes a simplified graphical representation is created. To be able to use the map in the game, both for generating a nicer map image by terra-exeris and to be able to process it in the game (e.g. for checking where the person can move) it must be exported to a format known by Exeris to import it to the game's database.
+For testing purposes a simplified graphical representation is created. To be able to use the map in the game, both for generating a nicer map image by terra-exeris and to be able to process it in the game (e.g. for checking where the person can move) it must be exported to a format known by Exeris so it can be stored in the game's database.
 
+# Conclusions
+
+I must say I was pretty afraid of taking this challenge and the belief that I won't be able to do it well was the main reason why I felt discouraged and gave up work on Exeris about 3 years ago. Fortunately, with a lot of reading and help of articles and algorithms created by people who were more engaged in the matter, I was able to achieve a pretty decent final result. This generator will surely be enough for the Beta version of the game.
+
+In the future I suspect it will need some more configurability to be able to generate bigger land forms (to generate the New World), I will also need to create snow and ice areas around north and south pole, but since players are not going to be able to cross deep water in the beginning, it won't be hard to add the new parts of the world as soon as I improve the generator.
+
+I hope the open beta of Exeris is getting closer every day!
